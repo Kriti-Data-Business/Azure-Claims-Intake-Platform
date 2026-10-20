@@ -1,0 +1,3 @@
+pydantic>=2.7
+pyyaml>=6
+pytest>=8
