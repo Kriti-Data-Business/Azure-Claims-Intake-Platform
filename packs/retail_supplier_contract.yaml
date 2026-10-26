@@ -1,0 +1,16 @@
+domain: retail_supplier_contract
+fields:
+  - {name: supplier, type: string, required: true, pattern: "supplier[:\\s]+([A-Z][A-Za-z0-9 &]+?)(?:[.,\\n]|$)"}
+  - {name: payment_days, type: number, required: true, min: 7, max: 120, pattern: "net\\s*(\\d+)"}
+  - {name: rebate_pct, type: number, pattern: "rebate of\\s*([\\d.]+)\\s*%"}
+  - {name: liability_cap, type: number, pattern: "liability (?:is )?capped at \\$\\s?([\\d,]+)"}
+  - {name: exclusive, type: boolean, pattern: "(exclusive)\\s+supply"}
+routes:
+  - {name: long payment terms hurt cash flow, when: "payment_days > 60", route: human_review}
+  - {name: high rebate needs finance sign-off, when: "rebate_pct > 5", route: human_review}
+  - {name: exclusivity needs legal, when: "exclusive", route: human_review}
+  - {name: standard terms, when: "payment_days <= 60", route: auto_action}
+knowledge:
+  - "Company policy: payment terms above 60 days require finance approval."
+  - "Company policy: rebates above 5 percent require finance sign-off and a volume commitment."
+  - "Company policy: exclusive supply arrangements require legal review and a termination clause."

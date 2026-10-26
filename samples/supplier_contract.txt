@@ -1,0 +1,2 @@
+Supplier: Northwind Foods Pty Ltd.
+Payment terms are net 90 days. The supplier offers a rebate of 7.5% on annual volume. Liability is capped at $250,000. Exclusive supply to our stores applies.
