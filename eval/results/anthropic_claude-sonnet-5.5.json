@@ -1,0 +1,77 @@
+{
+  "precision": 0.0,
+  "recall": 0.0,
+  "n_documents": 24,
+  "totals": {
+    "correct": 0,
+    "wrong": 0,
+    "missed": 48
+  },
+  "per_field": {
+    "retail_supplier_contract.payment_days": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 9
+    },
+    "retail_supplier_contract.supplier": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 9
+    },
+    "retail_supplier_contract.liability_cap": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 3
+    },
+    "retail_supplier_contract.rebate_pct": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 3
+    },
+    "retail_supplier_contract.exclusive": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 2
+    },
+    "claims_intake.amount": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 6
+    },
+    "claims_intake.urgent": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 2
+    },
+    "clinical_referral.urgency": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 5
+    },
+    "clinical_referral.specialty": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 5
+    },
+    "clinical_referral.days_waiting": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 3
+    },
+    "clinical_referral.red_flag": {
+      "correct": 0,
+      "wrong": 0,
+      "missed": 1
+    }
+  },
+  "routes": {
+    "auto_action": 0,
+    "human_review": 24,
+    "reject": 0
+  },
+  "extractor_health": {
+    "extraction_failed": 24,
+    "values_dropped_as_ungrounded": 0,
+    "values_dropped_wrong_type": 0
+  }
+}
