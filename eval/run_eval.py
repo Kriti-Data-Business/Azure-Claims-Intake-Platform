@@ -39,9 +39,14 @@ def score(extractor, rows: list[dict]) -> dict:
     packs = {p.stem: load_pack(p) for p in (ROOT / "packs").glob("*.yaml")}
     tally = defaultdict(lambda: {"correct": 0, "wrong": 0, "missed": 0})
     routes = {"auto_action": 0, "human_review": 0, "reject": 0}
+    health = {"extraction_failed": 0, "values_dropped_as_ungrounded": 0, "values_dropped_wrong_type": 0}
     for r in rows:
         out = run(r["text"], packs[r["pack"]], AuditLog(), extractor)
         routes[out["route"]] = routes.get(out["route"], 0) + 1
+        for i in out["issues"]:
+            health["extraction_failed"] += i.startswith("extraction failed")
+            health["values_dropped_as_ungrounded"] += i.startswith("ungrounded value")
+            health["values_dropped_wrong_type"] += i.startswith("wrong type")
         got, want = out["extracted"], r["expected"]
         for f in set(got) | set(want):
             t = tally[f"{r['pack']}.{f}"]
@@ -55,7 +60,7 @@ def score(extractor, rows: list[dict]) -> dict:
     precision = total["correct"] / max(1, total["correct"] + total["wrong"])
     recall = total["correct"] / max(1, total["correct"] + total["missed"])
     return {"precision": precision, "recall": recall, "n_documents": len(rows), "totals": total,
-            "per_field": dict(tally), "routes": routes}
+            "per_field": dict(tally), "routes": routes, "extractor_health": health}
 
 
 def main() -> None:
@@ -70,7 +75,22 @@ def main() -> None:
         env["OPENROUTER_MODEL"] = a.model
     res = score(build_extractor(env), rows)
 
-    import mlflow
+    out_dir = ROOT / "eval" / "results"
+    out_dir.mkdir(exist_ok=True)
+    tag = (env.get("OPENROUTER_MODEL") or a.extractor).replace("/", "_")
+    (out_dir / f"{tag}.json").write_text(json.dumps(res, indent=2))  # saved before anything optional runs
+    print(f"{a.extractor}: precision {res['precision']:.2f}  recall {res['recall']:.2f}  "
+          f"on {res['n_documents']} documents  routes {res['routes']}")
+    print(f"  extractor health: {res['extractor_health']}")
+    for k, t in sorted(res["per_field"].items()):
+        print(f"  {k:42s} {t}")
+
+    print(f"results saved to eval/results/{tag}.json")
+    try:
+        import mlflow
+    except ModuleNotFoundError:
+        print("MLflow is not installed, so this run was not tracked. `pip install -r requirements-dev.txt` to enable it.")
+        return
     mlflow.set_tracking_uri(a.tracking_uri)
     mlflow.set_experiment("claims-extraction-eval")
     with mlflow.start_run(run_name=f"{a.extractor}:{env.get('OPENROUTER_MODEL', '')}".rstrip(":")):
@@ -79,10 +99,6 @@ def main() -> None:
         mlflow.log_metrics({"precision": res["precision"], "recall": res["recall"],
                             **{f"routes_{k}": v for k, v in res["routes"].items()}})
         mlflow.log_dict(res, "field_results.json")
-    print(f"{a.extractor}: precision {res['precision']:.2f}  recall {res['recall']:.2f}  "
-          f"on {res['n_documents']} documents  routes {res['routes']}")
-    for k, t in sorted(res["per_field"].items()):
-        print(f"  {k:42s} {t}")
 
 
 if __name__ == "__main__":
