@@ -9,6 +9,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from app.actions import ActionError, ActionStore
 from app.queue import Queue
 from app.store import CaseStore
 from app.worker import Worker
@@ -28,8 +29,13 @@ class Decision(BaseModel):
     note: str = Field(default="", max_length=500)
 
 
+class ActionDecision(BaseModel):
+    approve: bool
+    reviewer: str = Field(min_length=1, max_length=80)
+
+
 def create_app(queue: Queue, store: CaseStore, worker: Worker, audit: AuditLog,
-               ingest_key: str, reviewer_key: str) -> FastAPI:
+               ingest_key: str, reviewer_key: str, actions: ActionStore | None = None) -> FastAPI:
     app = FastAPI(title="Claims Intake Platform", version="0.1.0")
 
     def need(expected: str):
@@ -82,5 +88,18 @@ def create_app(queue: Queue, store: CaseStore, worker: Worker, audit: AuditLog,
             rec = audit.append({"event": "human_review", "case_id": cid, **review})
         store.update(cid, "approved" if d.decision == "approve" else "rejected", review={**review, "audit_hash": rec["hash"]})
         return {"case_id": cid, "status": store.get(cid)["status"], "audit_hash": rec["hash"]}
+
+    @app.get("/actions", dependencies=[reviewer])
+    def list_actions(status: str = "awaiting_approval"):
+        return actions.list(status) if actions else []
+
+    @app.post("/actions/{aid}/approval", dependencies=[reviewer])
+    def approve_action(aid: str, d: ActionDecision):
+        if actions is None:
+            raise HTTPException(404, "actions not enabled")
+        try:
+            return actions.decide(aid, d.approve, d.reviewer)
+        except ActionError as e:
+            raise HTTPException(409, str(e))
 
     return app

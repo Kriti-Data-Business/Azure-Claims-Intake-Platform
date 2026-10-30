@@ -7,7 +7,7 @@ from engine.retrieve import retrieve
 from engine.validate import validate
 
 
-def run(text: str, pack: Pack, audit: AuditLog, extractor: Extractor | None = None) -> dict:
+def run(text: str, pack: Pack, audit: AuditLog, extractor: Extractor | None = None, retriever=None) -> dict:
     extractor = extractor or RuleExtractor()
     try:
         if hasattr(extractor, "extract_with_flags"):
@@ -18,7 +18,7 @@ def run(text: str, pack: Pack, audit: AuditLog, extractor: Extractor | None = No
     except ExtractionError as e:
         data, flags, failure = {}, [], f"extraction failed: {e}"
     issues = validate(data, pack) + flags + ([failure] if failure else [])
-    context = retrieve(text, pack)
+    context = (retriever or retrieve)(text, pack)
     route, reason = decide(data, issues, pack)  # any issue forces human_review
     rec = audit.append({"domain": pack.domain, "extracted": data, "issues": issues,
                         "context": context, "route": route, "reason": reason})
