@@ -94,7 +94,14 @@ class JsonHttp:
 
 def extraction_schema(pack: Pack) -> dict:
     """Every field required but nullable, which is what strict structured outputs need."""
-    props = {f.name: {"type": [JSON_TYPES.get(f.type, "string"), "null"]} for f in pack.fields}
+    props = {}
+    for f in pack.fields:
+        p = {"type": [JSON_TYPES.get(f.type, "string"), "null"]}
+        if f.description:
+            p["description"] = f.description
+        if f.enum:
+            p["enum"] = [*f.enum, None]
+        props[f.name] = p
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
@@ -106,7 +113,9 @@ SYSTEM = (
 
 
 def build_user_prompt(text: str, pack: Pack) -> str:
-    fields = "\n".join(f"- {f.name} ({f.type})" for f in pack.fields)
+    fields = "\n".join(
+        f"- {f.name} ({f.type}{', one of: ' + ', '.join(f.enum) if f.enum else ''})"
+        + (f": {f.description}" if f.description else "") for f in pack.fields)
     return f"Fields to extract for domain '{pack.domain}':\n{fields}\n\n<document>\n{text}\n</document>"
 
 
@@ -254,6 +263,11 @@ class LLMExtractor:
                 continue
             if f.type == "boolean" and v is False:
                 continue
+            if isinstance(v, str):
+                v = v.strip(" .,;:")  # a trailing full stop is punctuation, not part of a name
+                if f.enum and v.lower() not in f.enum:
+                    flags.append(f"value outside allowed set for {f.name}; dropped")
+                    continue
             if not _grounded(v, f.type, text):
                 flags.append(f"ungrounded value for {f.name}; dropped")
                 continue

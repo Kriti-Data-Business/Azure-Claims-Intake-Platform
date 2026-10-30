@@ -1,7 +1,7 @@
 domain: claims_intake
 fields:
-  - {name: amount, type: number, required: true, min: 0, max: 1000000, pattern: "\\$\\s?([\\d,]+)"}
-  - {name: urgent, type: boolean, pattern: "(urgent)"}
+  - {name: amount, type: number, description: "claimed or estimated amount in dollars, including written as AUD", required: true, min: 0, max: 1000000, pattern: "\\$\\s?([\\d,]+)"}
+  - {name: urgent, type: boolean, description: "true only if the claim is stated to be urgent", pattern: "(urgent)"}
 routes:
   - {name: urgent claims escalate, when: "urgent", route: human_review}
   - {name: small claim auto-process, when: "amount < 1000", route: auto_action}

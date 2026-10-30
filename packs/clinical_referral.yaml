@@ -2,10 +2,10 @@
 # clinical decision. Anything urgent, with a red-flag symptom, or waiting a long time goes to a clinician.
 domain: clinical_referral
 fields:
-  - {name: urgency, type: string, required: true, lowercase: true, pattern: "\\b(semi-urgent|urgent|routine)\\b"}
+  - {name: urgency, type: string, required: true, lowercase: true, enum: [routine, semi-urgent, urgent], description: "urgency stated by the referrer", pattern: "\\b(semi-urgent|urgent|routine)\\b"}
   - {name: specialty, type: string, required: true, lowercase: true, pattern: "referral to ([A-Za-z]+?)(?: clinic| service| team|[.,\\n]|$)"}
   - {name: days_waiting, type: number, min: 0, max: 1000, pattern: "waiting (\\d+) days"}
-  - {name: red_flag, type: boolean, pattern: "(chest pain|stroke symptoms|suspected cancer|suicidal)"}
+  - {name: red_flag, type: boolean, description: "true if the text reports a red-flag symptom such as chest pain, stroke symptoms, suspected cancer or suicidal thoughts", pattern: "(chest pain|stroke symptoms|suspected cancer|suicidal)"}
 routes:
   - {name: red-flag symptom needs a clinician now, when: "red_flag", route: human_review}
   - {name: urgent referral needs clinician triage, when: "urgency == 'urgent'", route: human_review}

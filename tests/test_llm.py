@@ -173,3 +173,24 @@ def test_openrouter_does_not_fall_back_on_auth_error():
     with pytest.raises(LLMError):
         OpenRouterClient("k", "m", http=http).complete_structured("s", "u", {})
     assert len(log) == 1
+
+
+CLIN = load_pack(P / "packs/clinical_referral.yaml")
+
+
+def test_schema_carries_descriptions_and_enums_and_prompt_shows_them():
+    from engine.llm import build_user_prompt
+    s = extraction_schema(CLIN)["properties"]
+    assert s["urgency"]["enum"] == ["routine", "semi-urgent", "urgent", None] and "red-flag" in s["red_flag"]["description"]
+    assert "one of: routine, semi-urgent, urgent" in build_user_prompt("x", CLIN) and "chest pain" in build_user_prompt("x", CLIN)
+
+
+def test_value_outside_enum_is_dropped_and_flagged():
+    doc = "Referral to cardiology. Please see soon if possible."
+    d, flags = LLMExtractor(FakeLLM({"urgency": "soon if possible", "specialty": "cardiology"})).extract_with_flags(doc, CLIN)
+    assert "urgency" not in d and any("outside allowed set for urgency" in f for f in flags)
+
+
+def test_trailing_punctuation_is_stripped_from_strings():
+    d, _ = LLMExtractor(FakeLLM({"supplier": "Acme Ltd.", "payment_days": 30})).extract_with_flags("Supplier: Acme Ltd. Net 30 days.", PACK)
+    assert d["supplier"] == "Acme Ltd"
