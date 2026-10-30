@@ -8,27 +8,27 @@
     "missed": 2
   },
   "per_field": {
-    "retail_supplier_contract.supplier": {
-      "correct": 9,
-      "wrong": 0,
-      "missed": 0
-    },
     "retail_supplier_contract.payment_days": {
       "correct": 7,
       "wrong": 0,
       "missed": 2
+    },
+    "retail_supplier_contract.supplier": {
+      "correct": 9,
+      "wrong": 0,
+      "missed": 0
     },
     "retail_supplier_contract.exclusive": {
       "correct": 2,
       "wrong": 0,
       "missed": 0
     },
-    "retail_supplier_contract.rebate_pct": {
+    "retail_supplier_contract.liability_cap": {
       "correct": 3,
       "wrong": 0,
       "missed": 0
     },
-    "retail_supplier_contract.liability_cap": {
+    "retail_supplier_contract.rebate_pct": {
       "correct": 3,
       "wrong": 0,
       "missed": 0
@@ -73,5 +73,28 @@
     "extraction_failed": 0,
     "values_dropped_as_ungrounded": 0,
     "values_dropped_wrong_type": 0
-  }
+  },
+  "mismatches": [
+    {
+      "pack": "retail_supplier_contract",
+      "field": "payment_days",
+      "expected": 60,
+      "got": null,
+      "text": "Supplier: Harbour Dairy Co. Invoices are payable within 60 days of receipt. Liability is capped at $1,000,000."
+    },
+    {
+      "pack": "retail_supplier_contract",
+      "field": "payment_days",
+      "expected": 30,
+      "got": null,
+      "text": "Supplier: Coastal Seafoods. Settlement is due 30 days after month end. The supplier grants a volume rebate of 6.25% per "
+    },
+    {
+      "pack": "claims_intake",
+      "field": "urgent",
+      "expected": null,
+      "got": true,
+      "text": "Stolen bicycle, value $1,200, not urgent."
+    }
+  ]
 }

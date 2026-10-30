@@ -39,6 +39,7 @@ def score(extractor, rows: list[dict]) -> dict:
     packs = {p.stem: load_pack(p) for p in (ROOT / "packs").glob("*.yaml")}
     tally = defaultdict(lambda: {"correct": 0, "wrong": 0, "missed": 0})
     routes = {"auto_action": 0, "human_review": 0, "reject": 0}
+    mismatches = []
     health = {"extraction_failed": 0, "values_dropped_as_ungrounded": 0, "values_dropped_wrong_type": 0}
     for r in rows:
         out = run(r["text"], packs[r["pack"]], AuditLog(), extractor)
@@ -47,20 +48,28 @@ def score(extractor, rows: list[dict]) -> dict:
             health["extraction_failed"] += i.startswith("extraction failed")
             health["values_dropped_as_ungrounded"] += i.startswith("ungrounded value")
             health["values_dropped_wrong_type"] += i.startswith("wrong type")
+            if i.startswith("extraction failed"):
+                health.setdefault("failure_reasons", {}).setdefault(i, 0)
+                health["failure_reasons"][i] += 1
         got, want = out["extracted"], r["expected"]
         for f in set(got) | set(want):
             t = tally[f"{r['pack']}.{f}"]
             if f in got and f in want:
-                t["correct" if same(got[f], want[f]) else "wrong"] += 1
+                ok = same(got[f], want[f])
+                t["correct" if ok else "wrong"] += 1
+                if not ok:
+                    mismatches.append({"pack": r["pack"], "field": f, "expected": want[f], "got": got[f], "text": r["text"][:120]})
             elif f in got:
                 t["wrong"] += 1
+                mismatches.append({"pack": r["pack"], "field": f, "expected": None, "got": got[f], "text": r["text"][:120]})
             else:
                 t["missed"] += 1
+                mismatches.append({"pack": r["pack"], "field": f, "expected": want[f], "got": None, "text": r["text"][:120]})
     total = {k: sum(t[k] for t in tally.values()) for k in ("correct", "wrong", "missed")}
     precision = total["correct"] / max(1, total["correct"] + total["wrong"])
     recall = total["correct"] / max(1, total["correct"] + total["missed"])
     return {"precision": precision, "recall": recall, "n_documents": len(rows), "totals": total,
-            "per_field": dict(tally), "routes": routes, "extractor_health": health}
+            "per_field": dict(tally), "routes": routes, "extractor_health": health, "mismatches": mismatches}
 
 
 def main() -> None:
@@ -73,7 +82,11 @@ def main() -> None:
     env = {**os.environ, "LLM_PROVIDER": a.extractor}
     if a.model:
         env["OPENROUTER_MODEL"] = a.model
-    res = score(build_extractor(env), rows)
+    extractor = build_extractor(env)
+    res = score(extractor, rows)
+    fb = getattr(getattr(extractor, "client", None), "fallbacks_used", None)
+    if fb is not None:
+        res["extractor_health"]["fallback_to_text_json"] = fb
 
     out_dir = ROOT / "eval" / "results"
     out_dir.mkdir(exist_ok=True)

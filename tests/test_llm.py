@@ -155,3 +155,21 @@ def test_missing_key_gives_a_clear_message_not_a_keyerror():
     with pytest.raises(SystemExit) as e:
         build_extractor({"LLM_PROVIDER": "anthropic"})
     assert "ANTHROPIC_API_KEY" in str(e.value)
+
+
+def test_openrouter_falls_back_to_text_json_when_tools_are_rejected():
+    import json as _j
+    from engine.llm import OpenRouterClient
+    http, log, _ = fast_http([(400, {}, {"error": "tools unsupported"}),
+                              (200, {}, {"choices": [{"message": {"content": "```json\n" + _j.dumps(GOOD) + "\n```"}}]})])
+    c = OpenRouterClient("k", "m", http=http)
+    assert c.complete_structured("s", "u", extraction_schema(PACK)) == GOOD
+    assert c.fallbacks_used == 1 and "tools" not in log[1][2] and "JSON schema" in log[1][2]["messages"][0]["content"]
+
+
+def test_openrouter_does_not_fall_back_on_auth_error():
+    from engine.llm import OpenRouterClient
+    http, log, _ = fast_http([(401, {}, {"error": "bad key"})])
+    with pytest.raises(LLMError):
+        OpenRouterClient("k", "m", http=http).complete_structured("s", "u", {})
+    assert len(log) == 1

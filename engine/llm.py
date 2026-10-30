@@ -9,6 +9,8 @@ Not implemented: streaming (extraction results are small and needed whole).
 from __future__ import annotations
 
 import json
+import os
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -82,7 +84,9 @@ class JsonHttp:
                 retry_after = {k.lower(): v for k, v in resp_headers.items()}.get("retry-after")
                 self.sleep(float(retry_after) if retry_after and retry_after.replace(".", "").isdigit() else 2 ** attempt)
                 continue
-            raise LLMError(f"provider error {status}")  # body deliberately not echoed: may contain prompt text
+            if os.environ.get("LLM_DEBUG"):  # opt-in: provider error bodies describe the error, but may quote input
+                print(f"[llm debug] {status} {raw[:300]!r}", file=sys.stderr)
+            raise LLMError(f"provider error {status}")  # body deliberately not echoed in the exception
         raise LLMError("retries exhausted")
 
 
@@ -167,7 +171,30 @@ class OpenRouterClient:
     def __init__(self, api_key: str, model: str, http: JsonHttp | None = None):
         self.api_key, self.model, self.http = api_key, model, http or JsonHttp()
 
+    fallbacks_used = 0
+
     def complete_structured(self, system: str, user: str, schema: dict) -> dict:
+        try:
+            return self._via_tools(system, user, schema)
+        except LLMError as e:
+            if "provider error 4" not in str(e) or "401" in str(e) or "402" in str(e) or "429" in str(e):
+                raise  # auth, billing and rate errors are not a tool-support problem
+            self.fallbacks_used += 1  # some model/provider routes reject forced tool calls: ask for JSON in text
+            return self._via_text(system, user, schema)
+
+    def _via_text(self, system: str, user: str, schema: dict) -> dict:
+        data = self.http.post(self.URL, {"Authorization": f"Bearer {self.api_key}"}, {
+            "model": self.model, "temperature": 0, "max_tokens": 600,
+            "messages": [{"role": "system", "content": system + " Reply with one JSON object only, matching this "
+                          "JSON schema: " + json.dumps(schema)}, {"role": "user", "content": user}],
+        })
+        try:
+            content = data["choices"][0]["message"]["content"] or ""
+            return json.JSONDecoder().raw_decode(content[content.index("{"):])[0]
+        except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as e:
+            raise LLMError("unusable OpenRouter text response") from e
+
+    def _via_tools(self, system: str, user: str, schema: dict) -> dict:
         data = self.http.post(self.URL, {"Authorization": f"Bearer {self.api_key}"}, {
             "model": self.model, "temperature": 0, "max_tokens": 600,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
