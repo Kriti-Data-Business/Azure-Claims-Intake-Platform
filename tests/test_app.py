@@ -115,3 +115,12 @@ def test_service_bus_adapter_surface():
     assert m.body == {"case_id": "c1"} and m.attempts == 1
     q.complete(m); q.abandon(m); q.dead_letter(m, "x" * 300)
     assert fake.log[:2] == ["complete", "abandon"] and len(fake.log[2][1]) == 128
+
+
+def test_main_wires_actions_endpoints():
+    from app.main import build
+    app, _ = build({"INGEST_API_KEY": "i", "REVIEWER_API_KEY": "r"})
+    c = TestClient(app)
+    assert c.get("/actions", headers={"X-API-Key": "r"}).json() == []
+    with pytest.raises(RuntimeError):
+        build({})

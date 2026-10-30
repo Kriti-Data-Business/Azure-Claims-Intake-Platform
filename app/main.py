@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 
+from app.actions import ActionStore
 from app.api import create_app
 from app.queue import InMemoryQueue, ServiceBusQueue
 from app.store import CaseStore
@@ -39,7 +40,8 @@ def build(env=os.environ):
     ingest, reviewer = env.get("INGEST_API_KEY"), env.get("REVIEWER_API_KEY")
     if not ingest or not reviewer:
         raise RuntimeError("set INGEST_API_KEY and REVIEWER_API_KEY")
-    return create_app(queue, store, worker, audit, ingest, reviewer), worker
+    actions = ActionStore(store, audit, worker.audit_lock)
+    return create_app(queue, store, worker, audit, ingest, reviewer, actions), worker
 
 
 def worker_loop() -> None:  # pragma: no cover
