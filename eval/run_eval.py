@@ -2,6 +2,7 @@
 
     python -m eval.run_eval --extractor rule
     python -m eval.run_eval --extractor anthropic     # needs ANTHROPIC_API_KEY (and network)
+    python -m eval.run_eval --extractor openrouter --model anthropic/claude-sonnet-5.5   # needs OPENROUTER_API_KEY
     python -m eval.run_eval --extractor azure_openai  # needs AZURE_OPENAI_* variables
     mlflow ui                                         # compare runs
 
@@ -59,19 +60,22 @@ def score(extractor, rows: list[dict]) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--extractor", default="rule", choices=["rule", "azure_openai", "anthropic"])
+    ap.add_argument("--extractor", default="rule", choices=["rule", "azure_openai", "anthropic", "openrouter"])
+    ap.add_argument("--model", help="model slug for --extractor openrouter, e.g. anthropic/claude-sonnet-5.5")
     ap.add_argument("--tracking-uri", default=f"sqlite:///{ROOT / 'mlflow.db'}")
     a = ap.parse_args()
     rows = [json.loads(line) for line in (ROOT / "eval/labelled.jsonl").read_text().splitlines() if line.strip()]
     env = {**os.environ, "LLM_PROVIDER": a.extractor}
+    if a.model:
+        env["OPENROUTER_MODEL"] = a.model
     res = score(build_extractor(env), rows)
 
     import mlflow
     mlflow.set_tracking_uri(a.tracking_uri)
     mlflow.set_experiment("claims-extraction-eval")
-    with mlflow.start_run(run_name=a.extractor):
+    with mlflow.start_run(run_name=f"{a.extractor}:{env.get('OPENROUTER_MODEL', '')}".rstrip(":")):
         mlflow.log_params({"extractor": a.extractor, "n_documents": res["n_documents"],
-                           "model": env.get("ANTHROPIC_MODEL") or env.get("AZURE_OPENAI_DEPLOYMENT") or "n/a"})
+                           "model": env.get("OPENROUTER_MODEL") or env.get("ANTHROPIC_MODEL") or env.get("AZURE_OPENAI_DEPLOYMENT") or "n/a"})
         mlflow.log_metrics({"precision": res["precision"], "recall": res["recall"],
                             **{f"routes_{k}": v for k, v in res["routes"].items()}})
         mlflow.log_dict(res, "field_results.json")

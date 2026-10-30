@@ -132,3 +132,26 @@ def test_rate_limiter_spaces_calls():
     rl = RateLimiter(2, clock=lambda: t[0], sleep=lambda s: (slept.append(s), t.__setitem__(0, t[0] + s)))
     rl.wait(); rl.wait()
     assert slept == [0.5]
+
+
+def test_openrouter_forced_function_call_parse_and_text_fallback():
+    from engine.llm import OpenRouterClient
+    import json as _j
+    resp = {"choices": [{"message": {"tool_calls": [{"function": {"arguments": _j.dumps(GOOD)}}]}}]}
+    http, log, _ = fast_http([(200, {}, resp)])
+    c = OpenRouterClient("k", "anthropic/claude-sonnet-5.5", http=http)
+    assert c.complete_structured("s", "u", extraction_schema(PACK)) == GOOD
+    url, headers, body = log[0]
+    assert url.endswith("/chat/completions") and headers["Authorization"] == "Bearer k"
+    assert body["tool_choice"]["function"]["name"] == "record_extraction" and body["model"] == "anthropic/claude-sonnet-5.5"
+    text = {"choices": [{"message": {"content": "Sure: " + _j.dumps(GOOD)}}]}
+    assert OpenRouterClient("k", "m", http=fast_http([(200, {}, text)])[0]).complete_structured("s", "u", {}) == GOOD
+    with pytest.raises(LLMError):
+        OpenRouterClient("k", "m", http=fast_http([(200, {}, {"choices": [{"message": {"content": "no json"}}]})])[0]).complete_structured("s", "u", {})
+
+
+def test_missing_key_gives_a_clear_message_not_a_keyerror():
+    from app.main import build_extractor
+    with pytest.raises(SystemExit) as e:
+        build_extractor({"LLM_PROVIDER": "anthropic"})
+    assert "ANTHROPIC_API_KEY" in str(e.value)

@@ -11,7 +11,7 @@ The design rule is that **the AI prepares and a person decides**. That matters m
 
 One engine, many domains. A **domain pack** (YAML) defines the fields, validation rules, routing rules and a small knowledge base. Adding a domain is a new YAML file, not an engine change. Packs included: `clinical_referral`, `claims_intake` and `retail_supplier_contract`.
 
-**Status in plain terms.** The engine, API, queue logic, LLM adapters, MCP server and evaluation harness are built and covered by 58 automated tests that run with no network and no keys, and CI passes. Not done: nothing has been deployed to Azure, the LLM adapters have not been run against a live model, and the Bicep file is unvalidated. All sample data is synthetic.
+**Status in plain terms.** The engine, API, queue logic, LLM adapters, MCP server and evaluation harness are built and covered by 60 automated tests that run with no network and no keys, and CI passes. Not done: nothing has been deployed to Azure, the LLM adapters have not been run against a live model, and the Bicep file is unvalidated. All sample data is synthetic.
 
 ## Demo
 
@@ -69,7 +69,7 @@ Every step appends to a hash-chained audit log (`/healthz` reports whether the c
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q                                           # 58 tests, offline
+pytest -q                                           # 60 tests, offline
 python -m scripts.demo                              # the demo above
 export INGEST_API_KEY=dev-ingest REVIEWER_API_KEY=dev-review
 uvicorn app.main:app                                # API, rule extractor, in-memory queue
@@ -79,13 +79,13 @@ python -m eval.run_eval --extractor rule && mlflow ui --backend-store-uri sqlite
 docker build -t claims-intake . && docker run -p 8000:8000 -e INGEST_API_KEY=a -e REVIEWER_API_KEY=b claims-intake
 ```
 
-Choose the extractor with `LLM_PROVIDER=rule | azure_openai | anthropic` (see `app/main.py` for the variables each one reads). Use `SERVICEBUS_CONNECTION_STRING` to switch from the in-memory queue to Service Bus.
+Choose the extractor with `LLM_PROVIDER=rule | azure_openai | anthropic | openrouter` (`app/main.py` names the variables each one needs and says which is missing). `openrouter` reaches any vendor's model through one key, for example `python -m eval.run_eval --extractor openrouter --model anthropic/claude-sonnet-5.5` with `OPENROUTER_API_KEY` set. Use `SERVICEBUS_CONNECTION_STRING` to switch from the in-memory queue to Service Bus.
 
 ## What is in each part
 
 | Part | Where | Notes |
 |---|---|---|
-| Extraction with LLMs | `engine/llm.py` | Azure OpenAI (strict `json_schema`) and Anthropic (forced tool use) clients. Timeout, retry with backoff and `Retry-After`, client-side rate limit, Entra token or API-key auth. Not implemented: streaming. |
+| Extraction with LLMs | `engine/llm.py` | Azure OpenAI (strict `json_schema`), Anthropic (forced tool use) and OpenRouter (forced function call, any model slug) clients. Timeout, retry with backoff and `Retry-After`, client-side rate limit, Entra token or API-key auth. Not implemented: streaming. |
 | Grounding check | `LLMExtractor` | A value the model returns is dropped, and the case forced to review, unless it appears in the document. The document is delimited and treated as untrusted. Known limit: number matching is textual, so a wrong number that also appears elsewhere in the document passes. |
 | Privacy at the edges | `engine/redact.py` | Emails, phone-like and Medicare-style numbers and dates are masked before text goes to an LLM. This is minimisation, not de-identification: names and addresses are not caught, so a real deployment needs a vetted de-identification step and a data-processing agreement. |
 | Safe routing rules | `engine/safe_expr.py` | The original `eval()` was replaced by an AST evaluator that allows only comparisons, boolean logic and arithmetic. Tests cover code-execution attempts. |

@@ -158,6 +158,37 @@ class AnthropicClient:
         raise LLMError("Anthropic response had no tool_use block")
 
 
+class OpenRouterClient:
+    """OpenAI-compatible chat endpoint reached through OpenRouter, using a forced function call
+    for structured output (supported across vendors, unlike json_schema). Any model slug works."""
+
+    URL = "https://openrouter.ai/api/v1/chat/completions"
+
+    def __init__(self, api_key: str, model: str, http: JsonHttp | None = None):
+        self.api_key, self.model, self.http = api_key, model, http or JsonHttp()
+
+    def complete_structured(self, system: str, user: str, schema: dict) -> dict:
+        data = self.http.post(self.URL, {"Authorization": f"Bearer {self.api_key}"}, {
+            "model": self.model, "temperature": 0, "max_tokens": 600,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "tools": [{"type": "function", "function": {"name": "record_extraction",
+                       "description": "Record the extracted fields.", "parameters": schema}}],
+            "tool_choice": {"type": "function", "function": {"name": "record_extraction"}},
+        })
+        try:
+            msg = data["choices"][0]["message"]
+            calls = msg.get("tool_calls") or []
+            if calls:
+                return json.loads(calls[0]["function"]["arguments"])
+            content = msg.get("content") or ""  # some models answer in text despite tool_choice
+            start = content.find("{")
+            if start < 0:
+                raise ValueError("no JSON object in reply")
+            return json.JSONDecoder().raw_decode(content[start:])[0]
+        except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as e:
+            raise LLMError("unusable OpenRouter response") from e
+
+
 # ---------- the extractor the pipeline uses ----------
 
 def _grounded(value, ftype: str, text: str) -> bool:

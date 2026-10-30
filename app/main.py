@@ -15,7 +15,7 @@ from app.store import CaseStore
 from app.worker import Worker
 from engine.audit import AuditLog
 from engine.extract import RuleExtractor
-from engine.llm import AnthropicClient, AzureOpenAIClient, LLMExtractor
+from engine.llm import AnthropicClient, AzureOpenAIClient, LLMExtractor, OpenRouterClient
 from engine.pack import load_pack
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -23,9 +23,16 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def build_extractor(env=os.environ):
     provider = env.get("LLM_PROVIDER", "rule")
+    needs = {"azure_openai": ["AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_DEPLOYMENT", "AZURE_OPENAI_API_KEY"],
+             "anthropic": ["ANTHROPIC_API_KEY"], "openrouter": ["OPENROUTER_API_KEY", "OPENROUTER_MODEL"]}.get(provider, [])
+    missing = [k for k in needs if not env.get(k)]
+    if missing:
+        raise SystemExit(f"LLM_PROVIDER={provider} needs these environment variables: {', '.join(missing)}")
     if provider == "azure_openai":
         return LLMExtractor(AzureOpenAIClient(env["AZURE_OPENAI_ENDPOINT"], env["AZURE_OPENAI_DEPLOYMENT"],
                                               api_key=env.get("AZURE_OPENAI_API_KEY")))
+    if provider == "openrouter":
+        return LLMExtractor(OpenRouterClient(env["OPENROUTER_API_KEY"], env["OPENROUTER_MODEL"]))
     if provider == "anthropic":
         return LLMExtractor(AnthropicClient(env["ANTHROPIC_API_KEY"], env.get("ANTHROPIC_MODEL", "claude-sonnet-5-5")))
     return RuleExtractor()
