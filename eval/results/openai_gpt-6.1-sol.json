@@ -18,13 +18,13 @@
       "wrong": 3,
       "missed": 0
     },
-    "retail_supplier_contract.exclusive": {
-      "correct": 2,
+    "retail_supplier_contract.liability_cap": {
+      "correct": 3,
       "wrong": 0,
       "missed": 0
     },
-    "retail_supplier_contract.liability_cap": {
-      "correct": 3,
+    "retail_supplier_contract.exclusive": {
+      "correct": 2,
       "wrong": 0,
       "missed": 0
     },
@@ -48,13 +48,13 @@
       "wrong": 1,
       "missed": 0
     },
-    "clinical_referral.specialty": {
-      "correct": 5,
+    "clinical_referral.days_waiting": {
+      "correct": 3,
       "wrong": 0,
       "missed": 0
     },
-    "clinical_referral.days_waiting": {
-      "correct": 3,
+    "clinical_referral.specialty": {
+      "correct": 5,
       "wrong": 0,
       "missed": 0
     },
@@ -72,6 +72,51 @@
   "extractor_health": {
     "extraction_failed": 0,
     "values_dropped_as_ungrounded": 2,
-    "values_dropped_wrong_type": 0
-  }
+    "values_dropped_wrong_type": 0,
+    "fallback_to_text_json": 0
+  },
+  "mismatches": [
+    {
+      "pack": "retail_supplier_contract",
+      "field": "supplier",
+      "expected": "Acme Ltd",
+      "got": "Acme Ltd.",
+      "text": "Supplier: Acme Ltd. Net 30 days."
+    },
+    {
+      "pack": "retail_supplier_contract",
+      "field": "supplier",
+      "expected": "Northwind Foods Pty Ltd",
+      "got": "Northwind Foods Pty Ltd.",
+      "text": "Supplier: Northwind Foods Pty Ltd.\nPayment terms are net 90 days. The supplier offers a rebate of 7.5% on annual volume."
+    },
+    {
+      "pack": "retail_supplier_contract",
+      "field": "supplier",
+      "expected": "Harbour Dairy Co",
+      "got": "Harbour Dairy Co.",
+      "text": "Supplier: Harbour Dairy Co. Invoices are payable within 60 days of receipt. Liability is capped at $1,000,000."
+    },
+    {
+      "pack": "claims_intake",
+      "field": "amount",
+      "expected": null,
+      "got": 2300.0,
+      "text": "Hail damage to car, assessor says AUD 2,300."
+    },
+    {
+      "pack": "clinical_referral",
+      "field": "red_flag",
+      "expected": true,
+      "got": null,
+      "text": "Referral to cardiology. URGENT review, patient reports chest pain on exertion."
+    },
+    {
+      "pack": "clinical_referral",
+      "field": "urgency",
+      "expected": null,
+      "got": "soon if possible",
+      "text": "Please see this resident for a review of their mobility, soon if possible."
+    }
+  ]
 }
