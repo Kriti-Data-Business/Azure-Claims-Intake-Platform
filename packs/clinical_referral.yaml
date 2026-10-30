@@ -1,0 +1,19 @@
+# Inbound clinical referral triage. Administrative queueing only: the engine never makes a
+# clinical decision. Anything urgent, with a red-flag symptom, or waiting a long time goes to a clinician.
+domain: clinical_referral
+fields:
+  - {name: urgency, type: string, required: true, lowercase: true, pattern: "\\b(semi-urgent|urgent|routine)\\b"}
+  - {name: specialty, type: string, required: true, lowercase: true, pattern: "referral to ([A-Za-z]+?)(?: clinic| service| team|[.,\\n]|$)"}
+  - {name: days_waiting, type: number, min: 0, max: 1000, pattern: "waiting (\\d+) days"}
+  - {name: red_flag, type: boolean, pattern: "(chest pain|stroke symptoms|suspected cancer|suicidal)"}
+routes:
+  - {name: red-flag symptom needs a clinician now, when: "red_flag", route: human_review}
+  - {name: urgent referral needs clinician triage, when: "urgency == 'urgent'", route: human_review}
+  - {name: semi-urgent referral needs clinician triage, when: "urgency == 'semi-urgent'", route: human_review}
+  - {name: long wait needs clinician review, when: "days_waiting > 90", route: human_review}
+  - {name: routine referral joins the waitlist, when: "urgency == 'routine'", route: auto_action}
+knowledge:
+  - "Urgent referrals must be seen by a clinician for triage within one business day."
+  - "Referrals with a red-flag symptom such as chest pain or suspected cancer are escalated to the duty clinician immediately."
+  - "Routine referrals are placed on the specialty waitlist and reviewed if the wait exceeds 90 days."
+  - "The system queues and escalates referrals. It does not decide clinical priority; a clinician does."

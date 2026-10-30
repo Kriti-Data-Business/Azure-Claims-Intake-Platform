@@ -10,6 +10,7 @@ class FieldSpec(BaseModel):
     pattern: str | None = None    # regex used by RuleExtractor; capture group 1 = value
     min: float | None = None
     max: float | None = None
+    lowercase: bool = False       # normalise string values so routing rules can compare them
 
 
 class RouteRule(BaseModel):

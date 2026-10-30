@@ -25,5 +25,5 @@ class RuleExtractor:
             elif f.type == "boolean":
                 out[f.name] = True
             else:
-                out[f.name] = raw
+                out[f.name] = raw.lower() if f.lowercase else raw
         return out

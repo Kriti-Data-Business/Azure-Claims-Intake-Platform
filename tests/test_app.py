@@ -124,3 +124,16 @@ def test_main_wires_actions_endpoints():
     assert c.get("/actions", headers={"X-API-Key": "r"}).json() == []
     with pytest.raises(RuntimeError):
         build({})
+
+
+def test_stats_and_clinical_pack_routing():
+    c, *_ = make()
+    for text in ["Referral to cardiology. Routine, waiting 20 days.",
+                 "Referral to cardiology. URGENT review, chest pain on exertion.",
+                 "Referral to orthopaedics. Routine, waiting 120 days."]:
+        submit(c, "clinical_referral", text)
+    c.post("/admin/process", headers=HR)
+    s = c.get("/stats", headers=HR).json()
+    assert s["cases_by_status"]["processed"] == 1 and s["cases_by_status"]["pending_review"] == 2
+    assert s["share_sent_to_humans"] == 0.667 and s["reviewer_rejection_rate"] is None
+    assert c.get("/stats", headers=HI).status_code == 401

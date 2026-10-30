@@ -5,7 +5,7 @@
     python -m eval.run_eval --extractor azure_openai  # needs AZURE_OPENAI_* variables
     mlflow ui                                         # compare runs
 
-The labelled set (eval/labelled.jsonl) is 18 short synthetic documents written for this repo,
+The labelled set (eval/labelled.jsonl) is 24 short synthetic documents written for this repo,
 including prompt-injection and phrasing the regex baseline does not cover. It is a regression
 check for the pipeline, not evidence about real claims or contracts.
 Scoring per field: correct = extracted equals expected; wrong = extracted but different or not

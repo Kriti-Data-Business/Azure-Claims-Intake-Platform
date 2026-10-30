@@ -52,5 +52,5 @@ def test_eval_scoring_perfect_and_wrong_extractor():
 
 def test_labelled_set_is_well_formed():
     rows = [json.loads(l) for l in (P / "eval/labelled.jsonl").read_text().splitlines() if l.strip()]
-    assert len(rows) == 18 and {r["pack"] for r in rows} == {"retail_supplier_contract", "claims_intake"}
+    assert len(rows) == 24 and {r["pack"] for r in rows} == {"retail_supplier_contract", "claims_intake", "clinical_referral"}
     assert same(6.25, 6.25) and same("Acme Ltd", "acme ltd")

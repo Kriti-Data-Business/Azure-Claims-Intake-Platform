@@ -15,6 +15,7 @@ import urllib.request
 from typing import Callable, Protocol
 
 from engine.pack import Pack
+from engine.redact import redact
 
 JSON_TYPES = {"string": "string", "number": "number", "boolean": "boolean"}
 
@@ -172,12 +173,13 @@ def _grounded(value, ftype: str, text: str) -> bool:
 class LLMExtractor:
     """Calls an LLM, then refuses anything the document does not support."""
 
-    def __init__(self, client: StructuredLLM):
-        self.client = client
+    def __init__(self, client: StructuredLLM, redact_input: bool = True):
+        self.client, self.redact_input = client, redact_input
 
     def extract_with_flags(self, text: str, pack: Pack) -> tuple[dict, list[str]]:
         try:
-            raw = self.client.complete_structured(SYSTEM, build_user_prompt(text, pack), extraction_schema(pack))
+            sent = redact(text) if self.redact_input else text  # grounding is still checked against the original
+            raw = self.client.complete_structured(SYSTEM, build_user_prompt(sent, pack), extraction_schema(pack))
         except LLMError as e:
             raise ExtractionError(str(e)) from e
         if not isinstance(raw, dict):
@@ -197,7 +199,7 @@ class LLMExtractor:
             if not _grounded(v, f.type, text):
                 flags.append(f"ungrounded value for {f.name}; dropped")
                 continue
-            data[f.name] = v
+            data[f.name] = v.lower() if (f.lowercase and isinstance(v, str)) else v
         return data, flags
 
     def extract(self, text: str, pack: Pack) -> dict:

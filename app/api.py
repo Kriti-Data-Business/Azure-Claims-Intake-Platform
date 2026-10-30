@@ -66,6 +66,18 @@ def create_app(queue: Queue, store: CaseStore, worker: Worker, audit: AuditLog,
         c.pop("text")  # the source document is not returned
         return c
 
+    @app.get("/stats", dependencies=[reviewer])
+    def stats():
+        """How the service is behaving: where cases end up and how often people overrule the routing."""
+        counts: dict[str, int] = {}
+        for st in ("queued", "processed", "pending_review", "approved", "rejected", "failed"):
+            counts[st] = len(store.list(st))
+        done = counts["processed"] + counts["approved"] + counts["rejected"] + counts["pending_review"]
+        reviewed = counts["approved"] + counts["rejected"]
+        return {"cases_by_status": counts,
+                "share_sent_to_humans": round((counts["pending_review"] + reviewed) / done, 3) if done else None,
+                "reviewer_rejection_rate": round(counts["rejected"] / reviewed, 3) if reviewed else None}
+
     @app.post("/admin/process", dependencies=[reviewer])
     def process(max_messages: int = 10):
         return {"processed": worker.process_batch(min(max_messages, 50))}

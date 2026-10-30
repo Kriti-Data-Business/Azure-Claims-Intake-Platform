@@ -97,6 +97,8 @@ class ActionStore:
         a = self.get(aid)
         if a is None:
             raise ActionError("no such action")
+        if a["status"] == "executed":
+            raise ActionError("refused: this action has already been executed")
         if a["status"] != "approved":
             raise ActionError(f"refused: action is {a['status']}, a human must approve it first")
         self._set(aid, "executed", expect="approved")  # atomic: a second call finds it already executed
