@@ -8,6 +8,9 @@ class Extractor(Protocol):
 
 
 class RuleExtractor:
+    def extract_with_flags(self, text: str, pack: Pack) -> tuple[dict, list[str]]:
+        return self.extract(text, pack), []
+
     def extract(self, text: str, pack: Pack) -> dict:
         out: dict = {}
         for f in pack.fields:

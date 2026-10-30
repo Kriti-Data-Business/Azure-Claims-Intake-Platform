@@ -1,4 +1,5 @@
 from engine.pack import Pack
+from engine.safe_expr import evaluate
 
 
 def decide(data: dict, issues: list[str], pack: Pack) -> tuple[str, str]:
@@ -6,9 +7,8 @@ def decide(data: dict, issues: list[str], pack: Pack) -> tuple[str, str]:
         return "human_review", "validation issues: " + "; ".join(issues)
     for rule in pack.routes:
         try:
-            # restricted eval: only extracted fields, no builtins
-            if eval(rule.when, {"__builtins__": {}}, dict(data)):  # noqa: S307
+            if evaluate(rule.when, data):
                 return rule.route, rule.name
-        except NameError:
-            continue
+        except KeyError:
+            continue  # rule refers to a field that was not extracted
     return pack.default_route, "default"
